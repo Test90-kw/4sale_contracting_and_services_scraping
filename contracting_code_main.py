@@ -136,8 +136,8 @@ class ContractingMainScraper:
 
         semaphore = asyncio.Semaphore(self.max_concurrent_links)
 
-        for chunk_index, chunk in enumerate(contractingANDservice_chunks, 1):
-            self.logger.info(f"Processing chunk {chunk_index}/{len(contractingANDservice_chunks)}")
+        for chunk_index, chunk in enumerate(contractingANDservices_chunks, 1):
+            self.logger.info(f"Processing chunk {chunk_index}/{len(contractingANDservices_chunks)}")
 
             tasks = []
             for contractingANDservice_name, urls in chunk:
