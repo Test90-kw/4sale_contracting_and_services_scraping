@@ -5,24 +5,25 @@ import json
 import logging
 from datetime import datetime, timedelta
 from DetailsScraper import DetailsScraping
-from CarScraper import CarScraper
+from CardScraper import CardScraper
+from SavingOnDriveServices import SavingOnDriveServices
 from pathlib import Path
 from typing import Dict, List, Tuple
 from playwright.async_api import async_playwright
 
 
-class HierarchialMainScraper:
+class ServicesMainScraper:
     def __init__(self):
         self.yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
 
-    def filter_yesterday_data(self, cars_data):
+    def filter_yesterday_data(self, cards_data):
         """Filter car data to only include entries from yesterday"""
         filtered_data = []
-        for car in cars_data:
+        for card in cards_data:
             try:
-                car_date = datetime.strptime(car['date_published'], '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d')
-                if car_date == self.yesterday:
-                    filtered_data.append(car)
+                card_date = datetime.strptime(card['date_published'], '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d')
+                if card_date == self.yesterday:
+                    filtered_data.append(card)
             except (ValueError, TypeError):
                 continue
         print(f"Filtered data for {self.yesterday}: {filtered_data}")
@@ -41,10 +42,10 @@ class HierarchialMainScraper:
 
                 for brand in brand_data:
                     try:
-                        yesterday_cars = self.filter_yesterday_data(brand.get('available_cars', []))
+                        yesterday_cards = self.filter_yesterday_data(brand.get('available_cards', []))
 
-                        if yesterday_cars:
-                            df = pd.DataFrame(yesterday_cars)
+                        if yesterday_cards:
+                            df = pd.DataFrame(yesterday_cards)
                             sheet_name = "".join(x for x in brand['brand_title'] if x.isalnum())[:31]
                             df.to_excel(writer, sheet_name=sheet_name, index=False)
                             print(f"Added sheet {sheet_name} to {filename}")
@@ -67,7 +68,7 @@ class HierarchialMainScraper:
         for url in urls:
             try:
                 print(f"Scraping data from URL: {url}")
-                scraper = CarScraper(url)
+                scraper = CardScraper(url)
                 brand_data = await scraper.scrape_brands_and_types()
                 if brand_data:
                     all_brand_data.extend(brand_data)
@@ -82,29 +83,29 @@ class HierarchialMainScraper:
         self.save_to_excel(category_name, all_brand_data)
         return all_brand_data
 
-    async def run(self, automotives_data):
+    async def run(self, contractingANDservices_data):
         """Main method to run the scraper"""
         print("Starting the scraping process...")
 
-        for category_name, urls in automotives_data.items():
+        for category_name, urls in contractingANDservices_data.items():
             print(f"\nProcessing category: {category_name}")
             await self.process_category(category_name, urls)
 
         print("\nScraping process completed!")
 
 
-def main():
-    automotives_data = {
-        "الوكالات": ["https://www.q84sale.com/ar/automotive/dealerships"],
-        "دراجات": ["https://www.q84sale.com/ar/automotive/bikes"],
-        "مكاتب تأجير السيارات": ["https://www.q84sale.com/ar/automotive/car-rental"],
-        "مكاتب السيارات": ["https://www.q84sale.com/ar/automotive/car-offices"],
-        "خدمات المحركات": ["https://www.q84sale.com/ar/automotive/automotive-services"],
-    }
+# def main():
+#     # automotives_data = {
+#     #     "الوكالات": ["https://www.q84sale.com/ar/automotive/dealerships"],
+#     #     "دراجات": ["https://www.q84sale.com/ar/automotive/bikes"],
+#     #     "مكاتب تأجير السيارات": ["https://www.q84sale.com/ar/automotive/car-rental"],
+#     #     "مكاتب السيارات": ["https://www.q84sale.com/ar/automotive/car-offices"],
+#     #     "خدمات المحركات": ["https://www.q84sale.com/ar/automotive/automotive-services"],
+#     # }
 
-    scraper = HierarchialMainScraper()
-    asyncio.run(scraper.run(automotives_data))
+#     scraper = ServicesMainScraper()
+#     asyncio.run(scraper.run(contractingANDservices_data))
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
