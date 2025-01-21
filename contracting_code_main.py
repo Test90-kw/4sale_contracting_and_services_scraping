@@ -6,7 +6,7 @@ import logging
 from playwright.async_api import async_playwright
 from datetime import datetime, timedelta
 from DetailsScraper import DetailsScraping
-from SavingOnDrive import SavingOnDrive
+from SavingOnDriveContracting import SavingOnDriveContracting
 from typing import Dict, List, Tuple
 from pathlib import Path
 
@@ -122,7 +122,7 @@ class ContractingMainScraper:
             if not credentials_json:
                 raise EnvironmentError("HIERARCHIAL_GCLOUD_KEY_JSON environment variable not found")
             credentials_dict = json.loads(credentials_json)
-            drive_saver = SavingOnDrive(credentials_dict)
+            drive_saver = SavingOnDriveContracting(credentials_dict)
             drive_saver.authenticate()
         except Exception as e:
             self.logger.error(f"Failed to setup Google Drive: {e}")
