@@ -5,7 +5,6 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from datetime import datetime, timedelta
 
-
 class SavingOnDriveContracting:
     def __init__(self, credentials_dict):
         self.credentials_dict = credentials_dict
@@ -24,7 +23,6 @@ class SavingOnDriveContracting:
         }
         if parent_folder_id:
             file_metadata['parents'] = [parent_folder_id]
-
         folder = self.service.files().create(body=file_metadata, fields='id').execute()
         return folder.get('id')
 
@@ -34,15 +32,23 @@ class SavingOnDriveContracting:
         file = self.service.files().create(body=file_metadata, media_body=media, fields='id').execute()
         return file.get('id')
 
-    def save_files(self, files):
-        parent_folder_id = '1HDaiX9adrEsAx74dRlbmgMZMm_eeVyHM'  # ID of "Property Scraper Uploads"
-
-        yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-        folder_id = self.create_folder(yesterday, parent_folder_id)
+    def save_files(self, files, folder_id=None):
+        """
+        Upload files to Google Drive.
+        
+        Args:
+            files (list): List of file names to upload
+            folder_id (str, optional): ID of the folder to upload to. If None, creates a new folder
+        """
+        if folder_id is None:
+            parent_folder_id = '1HDaiX9adrEsAx74dRlbmgMZMm_eeVyHM'  # ID of "Property Scraper Uploads"
+            yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+            folder_id = self.create_folder(yesterday, parent_folder_id)
 
         for file_name in files:
             self.upload_file(file_name, folder_id)
-        print(f"Files uploaded successfully to folder '{yesterday}' on Google Drive.")
+        
+        return folder_id
 
     def get_folder_id(self, folder_name):
         try:
@@ -55,4 +61,3 @@ class SavingOnDriveContracting:
         except Exception as e:
             print(f"Error fetching folder ID for '{folder_name}': {e}")
             return None
-
