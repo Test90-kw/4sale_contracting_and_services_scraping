@@ -50,8 +50,9 @@ class ContractingMainScraper:
                     try:
                         cards = await scraper.get_card_details()
                         for card in cards:
-                            if card.get("date_published", "").split()[0] == yesterday:
+                            if card.get("date_published") and card.get("date_published", "").split()[0] == yesterday:
                                 card_data.append(card)
+
                         await asyncio.sleep(self.page_delay)  # Delay between page requests
                     except Exception as e:
                         self.logger.error(f"Error scraping {url}: {e}")
@@ -168,7 +169,7 @@ class ContractingMainScraper:
                     except Exception as e:
                         self.logger.error(f"Error cleaning up {file}: {e}")
 
-            if chunk_index < len(contractingANDservice_chunks):
+            if chunk_index < len(contractingANDservices_chunks):
                 self.logger.info(f"Waiting {self.chunk_delay} seconds before next chunk...")
                 await asyncio.sleep(self.chunk_delay)
 
