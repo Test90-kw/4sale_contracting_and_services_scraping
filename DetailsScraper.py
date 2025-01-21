@@ -154,11 +154,27 @@ class DetailsScraping:
 
     async def scrape_relative_date(self, page):
         try:
+            # First try to get all data items
             parent_locator = page.locator('.d-flex.styles_topData__Sx1GF')
             await parent_locator.wait_for(state="visible", timeout=10000)
-            relative_time_locator = parent_locator.locator(
-                '.d-flex.align-items-center.styles_dataWithIcon__For9u .text-5-regular.m-text-6-med.text-neutral_600')
-            return await relative_time_locator.inner_text()
+        
+            # Get all data items that contain both views and date
+            data_items = page.locator('.d-flex.align-items-center.styles_dataWithIcon__For9u')
+        
+            # Get the text content of all matching items
+            items = await data_items.all()
+        
+            for item in items:
+                # Get the text content
+                text = await item.inner_text()
+                # Check if this contains time-related words in Arabic
+                if any(word in text for word in ['منذ', 'ساعة', 'يوم', 'دقيقة', 'شهر']):
+                    # Get the specific time element within this container
+                    time_element = await item.locator('.text-5-regular.m-text-6-med.text-neutral_600').inner_text()
+                    return time_element.strip()
+                
+            return None
+        
         except Exception as e:
             print(f"Error while scraping relative_date: {e}")
             return None
