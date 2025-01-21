@@ -6,7 +6,7 @@ from googleapiclient.http import MediaFileUpload
 from datetime import datetime, timedelta
 
 
-class SavingOnDrive:
+class SavingOnDriveContracting:
     def __init__(self, credentials_dict):
         self.credentials_dict = credentials_dict
         self.scopes = ['https://www.googleapis.com/auth/drive']
@@ -35,7 +35,7 @@ class SavingOnDrive:
         return file.get('id')
 
     def save_files(self, files):
-        parent_folder_id = '1ayaYWPFnswsOP2nRiDtiwGuy_r43Dr3F'  # ID of "Property Scraper Uploads"
+        parent_folder_id = '1HDaiX9adrEsAx74dRlbmgMZMm_eeVyHM'  # ID of "Property Scraper Uploads"
 
         yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
         folder_id = self.create_folder(yesterday, parent_folder_id)
