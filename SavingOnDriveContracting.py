@@ -43,3 +43,16 @@ class SavingOnDriveContracting:
         for file_name in files:
             self.upload_file(file_name, folder_id)
         print(f"Files uploaded successfully to folder '{yesterday}' on Google Drive.")
+
+    def get_folder_id(self, folder_name):
+        try:
+            query = f"name = '{folder_name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+            response = self.service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
+            folders = response.get('files', [])
+            if folders:
+                return folders[0]['id']
+            return None
+        except Exception as e:
+            print(f"Error fetching folder ID for '{folder_name}': {e}")
+            return None
+
