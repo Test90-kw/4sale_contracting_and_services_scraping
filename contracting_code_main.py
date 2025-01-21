@@ -142,8 +142,9 @@ class ContractingMainScraper:
             tasks = []
             for contractingANDservice_name, urls in chunk:
                 task = asyncio.create_task(self.scrape_contractingANDservice(contractingANDservice_name, urls, semaphore))
-                tasks.append((contractingANDservices_name, task))
+                tasks.append((contractingANDservice_name, task))
                 await asyncio.sleep(2)  # Delay between task creation
+
 
             pending_uploads = []
             for contractingANDservice_name, task in tasks:
