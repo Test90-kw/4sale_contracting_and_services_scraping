@@ -120,36 +120,47 @@ class DetailsScraping:
         return "Not Pinned"
 
     # New method to scrape the x value (second value)
+    # async def scrape_relative_date(self, page):
+    #     try:
+    #         # Define the parent container selector
+    #         parent_selector = '.d-flex.styles_topData__Sx1GF'
+
+    #         # Locate the parent container and get all the child divs with the desired class
+    #         parent_locator = page.locator(parent_selector)
+
+    #         # Wait for the parent container to be visible before proceeding
+    #         await parent_locator.wait_for(state="visible", timeout=10000)
+
+    #         # Get all child div elements with the class 'd-flex align-items-center styles_dataWithIcon__For9u'
+    #         child_divs = parent_locator.locator('.d-flex.align-items-center.styles_dataWithIcon__For9u')
+
+    #         # Wait until the elements are available and then fetch the second child div
+    #         await child_divs.first.wait_for(state="visible", timeout=10000)  # Ensure first child is available
+    #         await child_divs.nth(1).wait_for(state="visible", timeout=10000)  # Wait for second child to be visible
+
+    #         # Extract the x value (content of the second div)
+    #         relative_time_locator = child_divs.nth(1).locator('div.text-5-regular.m-text-6-med.text-neutral_600')
+    #         relative_time_text = await relative_time_locator.inner_text()
+    #         if relative_time_text:
+    #             stripped_time = relative_time_text.replace(" ago", "").strip()
+    #             return stripped_time  # Clean up whitespace
+    #         else:
+    #             print("relative_time value not found.")
+    #             return None
+
+    #     except Exception as e:
+    #         print(f"Error while scraping relative_time value: {e}")
+    #         return None
+
     async def scrape_relative_date(self, page):
         try:
-            # Define the parent container selector
-            parent_selector = '.d-flex.styles_topData__Sx1GF'
-
-            # Locate the parent container and get all the child divs with the desired class
-            parent_locator = page.locator(parent_selector)
-
-            # Wait for the parent container to be visible before proceeding
+            parent_locator = page.locator('.d-flex.styles_topData__Sx1GF')
             await parent_locator.wait_for(state="visible", timeout=10000)
-
-            # Get all child div elements with the class 'd-flex align-items-center styles_dataWithIcon__For9u'
-            child_divs = parent_locator.locator('.d-flex.align-items-center.styles_dataWithIcon__For9u')
-
-            # Wait until the elements are available and then fetch the second child div
-            await child_divs.first.wait_for(state="visible", timeout=10000)  # Ensure first child is available
-            await child_divs.nth(1).wait_for(state="visible", timeout=10000)  # Wait for second child to be visible
-
-            # Extract the x value (content of the second div)
-            relative_time_locator = child_divs.nth(1).locator('div.text-5-regular.m-text-6-med.text-neutral_600')
-            relative_time_text = await relative_time_locator.inner_text()
-            if relative_time_text:
-                stripped_time = relative_time_text.replace(" ago", "").strip()
-                return stripped_time  # Clean up whitespace
-            else:
-                print("relative_time value not found.")
-                return None
-
+            relative_time_locator = parent_locator.locator(
+                '.d-flex.align-items-center.styles_dataWithIcon__For9u .text-5-regular.m-text-6-med.text-neutral_600')
+            return await relative_time_locator.inner_text()
         except Exception as e:
-            print(f"Error while scraping relative_time value: {e}")
+            print(f"Error while scraping relative_date: {e}")
             return None
 
     # Method to scrape date_published
