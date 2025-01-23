@@ -4,6 +4,8 @@ from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from datetime import datetime, timedelta
+import traceback
+
 
 class SavingOnDriveContracting:
     def __init__(self, credentials_dict):
@@ -11,11 +13,28 @@ class SavingOnDriveContracting:
         self.scopes = ['https://www.googleapis.com/auth/drive']
         self.service = None
 
-    def authenticate(self):
-        # Load credentials directly from the JSON content
-        creds = Credentials.from_service_account_info(self.credentials_dict, scopes=self.scopes)
-        self.service = build('drive', 'v3', credentials=creds)
+    # def authenticate(self):
+    #     # Load credentials directly from the JSON content
+    #     creds = Credentials.from_service_account_info(self.credentials_dict, scopes=self.scopes)
+    #     self.service = build('drive', 'v3', credentials=creds)
 
+    def authenticate(self):
+        try:
+            # Print out credentials details for debugging
+            print("Credentials Dict Keys:", list(self.credentials_dict.keys()))
+            print("Service Account Email:", self.credentials_dict.get('client_email'))
+            
+            creds = Credentials.from_service_account_info(self.credentials_dict, scopes=self.scopes)
+            self.service = build('drive', 'v3', credentials=creds)
+            
+            # Verify service is working by listing files
+            test_files = self.service.files().list(pageSize=10, fields="nextPageToken, files(id, name)").execute()
+            print("Successfully authenticated and can list files")
+        except Exception as e:
+            print("Authentication Error:")
+            print(traceback.format_exc())
+            raise
+    
     def create_folder(self, folder_name, parent_folder_id=None):
         file_metadata = {
             'name': folder_name,
@@ -56,25 +75,27 @@ class SavingOnDriveContracting:
                 parent_folder_id = '1HDaiX9adrEsAx74dRlbmgMZMm_eeVyHM'
                 yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
                 folder_id = self.create_folder(yesterday, parent_folder_id)
-        
+                print(f"Created folder {yesterday} with ID: {folder_id}")
+            
             for file_name in files:
                 try:
-                    # Verify file exists before upload
                     if not os.path.exists(file_name):
                         print(f"Error: File {file_name} does not exist")
                         continue
-                
+                    
                     file_metadata = {'name': os.path.basename(file_name), 'parents': [folder_id]}
                     media = MediaFileUpload(file_name, resumable=True)
                     file = self.service.files().create(body=file_metadata, media_body=media, fields='id').execute()
                     print(f"Uploaded {file_name}, file ID: {file.get('id')}")
                 except Exception as upload_error:
-                    print(f"Detailed upload error for {file_name}: {upload_error}")
+                    print(f"Detailed upload error for {file_name}:")
+                    print(traceback.format_exc())
                     raise
-        
+            
             return folder_id
         except Exception as e:
-            print(f"Comprehensive save_files error: {e}")
+            print("Comprehensive save_files error:")
+            print(traceback.format_exc())
             raise
     
     def get_folder_id(self, folder_name):
