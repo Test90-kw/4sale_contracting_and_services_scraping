@@ -3,17 +3,17 @@ import pandas as pd
 import os
 import json
 import logging
-from playwright.async_api import async_playwright
 from datetime import datetime, timedelta
-from DetailsScraper import DetailsScraping
-from SavingOnDriveContracting import SavingOnDriveContracting
 from typing import Dict, List, Tuple
 from pathlib import Path
+from DetailsScraper import DetailsScraping
+from SavingOnDriveContracting import SavingOnDriveContracting
+
 
 class ContractingMainScraper:
     def __init__(self, contractingANDservices_data: Dict[str, List[Tuple[str, int]]]):
         self.contractingANDservices_data = contractingANDservices_data
-        self.chunk_size = 2  # Number of automotives processed per chunk
+        self.chunk_size = 2  # Number of categories processed per chunk
         self.max_concurrent_links = 2  # Max links processed simultaneously
         self.logger = logging.getLogger(__name__)
         self.setup_logging()
@@ -28,16 +28,16 @@ class ContractingMainScraper:
         """Initialize logging configuration."""
         logging.basicConfig(
             level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s',
+            format="%(asctime)s - %(levelname)s - %(message)s",
             handlers=[
                 logging.StreamHandler(),
-                logging.FileHandler('scraper.log')
-            ]
+                logging.FileHandler("scraper.log"),
+            ],
         )
         self.logger.setLevel(logging.INFO)
 
     async def scrape_contractingANDservice(self, contractingANDservice_name: str, urls: List[Tuple[str, int]], semaphore: asyncio.Semaphore) -> List[Dict]:
-        """Scrape data for a single automotive category."""
+        """Scrape data for a single category."""
         self.logger.info(f"Starting to scrape {contractingANDservice_name}")
         card_data = []
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -53,10 +53,10 @@ class ContractingMainScraper:
                             if card.get("date_published") and card.get("date_published", "").split()[0] == yesterday:
                                 card_data.append(card)
 
-                        await asyncio.sleep(self.page_delay)  # Delay between page requests
+                        await asyncio.sleep(self.page_delay)
                     except Exception as e:
                         self.logger.error(f"Error scraping {url}: {e}")
-                        continue  # Continue with next page even if current fails
+                        continue
 
         return card_data
 
@@ -67,7 +67,7 @@ class ContractingMainScraper:
             return None
 
         excel_file = Path(f"{contractingANDservice_name}.xlsx")
-        
+
         try:
             df = pd.DataFrame(card_data)
             df.to_excel(excel_file, index=False)
@@ -83,7 +83,6 @@ class ContractingMainScraper:
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
         try:
-            # Get or create yesterday's folder directly in parent folder
             folder_id = drive_saver.get_folder_id(yesterday)
             if not folder_id:
                 folder_id = drive_saver.create_folder(yesterday)
@@ -93,7 +92,7 @@ class ContractingMainScraper:
                 for attempt in range(self.upload_retries):
                     try:
                         if os.path.exists(file):
-                            drive_saver.save_files([file], folder_id=folder_id)
+                            drive_saver.upload_file(file, folder_id)
                             uploaded_files.append(file)
                             self.logger.info(f"Successfully uploaded {file} to Google Drive folder '{yesterday}'")
                             break
@@ -101,10 +100,7 @@ class ContractingMainScraper:
                         self.logger.error(f"Upload attempt {attempt + 1} failed for {file}: {e}")
                         if attempt < self.upload_retries - 1:
                             await asyncio.sleep(self.upload_retry_delay)
-                            try:
-                                drive_saver.authenticate()
-                            except Exception as auth_error:
-                                self.logger.error(f"Failed to refresh authentication: {auth_error}")
+                            drive_saver.authenticate()
                         else:
                             self.logger.error(f"Failed to upload {file} after {self.upload_retries} attempts")
 
@@ -114,12 +110,12 @@ class ContractingMainScraper:
         return uploaded_files
 
     async def scrape_all_contractingANDservices(self):
-        """Scrape all automotives in chunks."""
+        """Scrape all categories in chunks."""
         self.temp_dir.mkdir(exist_ok=True)
 
         # Setup Google Drive
         try:
-            credentials_json = os.environ.get('CONTRACTING_GCLOUD_KEY_JSON')
+            credentials_json = os.environ.get("CONTRACTING_GCLOUD_KEY_JSON")
             if not credentials_json:
                 raise EnvironmentError("CONTRACTING_GCLOUD_KEY_JSON environment variable not found")
             credentials_dict = json.loads(credentials_json)
@@ -129,9 +125,8 @@ class ContractingMainScraper:
             self.logger.error(f"Failed to setup Google Drive: {e}")
             return
 
-        # Split automotives into chunks
         contractingANDservices_chunks = [
-            list(self.contractingANDservices_data.items())[i:i + self.chunk_size]
+            list(self.contractingANDservices_data.items())[i : i + self.chunk_size]
             for i in range(0, len(self.contractingANDservices_data), self.chunk_size)
         ]
 
@@ -144,8 +139,7 @@ class ContractingMainScraper:
             for contractingANDservice_name, urls in chunk:
                 task = asyncio.create_task(self.scrape_contractingANDservice(contractingANDservice_name, urls, semaphore))
                 tasks.append((contractingANDservice_name, task))
-                await asyncio.sleep(2)  # Delay between task creation
-
+                await asyncio.sleep(2)
 
             pending_uploads = []
             for contractingANDservice_name, task in tasks:
@@ -159,9 +153,8 @@ class ContractingMainScraper:
                     self.logger.error(f"Error processing {contractingANDservice_name}: {e}")
 
             if pending_uploads:
-                uploaded_files = await self.upload_files_with_retry(drive_saver, pending_uploads)
+                await self.upload_files_with_retry(drive_saver, pending_uploads)
 
-                # Clean up uploaded files
                 for file in pending_uploads:
                     try:
                         os.remove(file)
@@ -172,6 +165,7 @@ class ContractingMainScraper:
             if chunk_index < len(contractingANDservices_chunks):
                 self.logger.info(f"Waiting {self.chunk_delay} seconds before next chunk...")
                 await asyncio.sleep(self.chunk_delay)
+
 
 if __name__ == "__main__":
     contractingANDservices_data = {
