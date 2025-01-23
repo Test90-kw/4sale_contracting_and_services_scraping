@@ -74,24 +74,51 @@ class SavingOnDriveContracting:
             if folder_id is None:
                 parent_folder_id = '1HDaiX9adrEsAx74dRlbmgMZMm_eeVyHM'
                 yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-                folder_id = self.create_folder(yesterday, parent_folder_id)
-                print(f"Created folder {yesterday} with ID: {folder_id}")
             
+                try:
+                    # Check if folder already exists
+                    existing_folder = self.get_folder_id(yesterday)
+                    if existing_folder:
+                        folder_id = existing_folder
+                        print(f"Found existing folder {yesterday} with ID: {folder_id}")
+                    else:
+                        # Verify parent folder exists
+                        try:
+                            parent_folder = self.service.files().get(fileId=parent_folder_id).execute()
+                            print(f"Parent folder verified: {parent_folder.get('name')}")
+                        except Exception as parent_error:
+                            print(f"Error accessing parent folder: {parent_error}")
+                            raise
+
+                        # Create folder if not exists
+                        folder_id = self.create_folder(yesterday, parent_folder_id)
+                        print(f"Created folder {yesterday} with ID: {folder_id}")
+                except Exception as folder_error:
+                    print(f"Folder creation/retrieval error: {folder_error}")
+                    raise
+        
             for file_name in files:
                 try:
                     if not os.path.exists(file_name):
                         print(f"Error: File {file_name} does not exist")
                         continue
-                    
-                    file_metadata = {'name': os.path.basename(file_name), 'parents': [folder_id]}
+                
+                    file_metadata = {
+                        'name': os.path.basename(file_name), 
+                        'parents': [folder_id]
+                    }
                     media = MediaFileUpload(file_name, resumable=True)
-                    file = self.service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+                    file = self.service.files().create(
+                        body=file_metadata, 
+                        media_body=media, 
+                        fields='id'
+                    ).execute()
                     print(f"Uploaded {file_name}, file ID: {file.get('id')}")
                 except Exception as upload_error:
                     print(f"Detailed upload error for {file_name}:")
                     print(traceback.format_exc())
                     raise
-            
+        
             return folder_id
         except Exception as e:
             print("Comprehensive save_files error:")
