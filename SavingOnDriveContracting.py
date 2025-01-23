@@ -84,8 +84,10 @@ class SavingOnDriveContracting:
 
             if folder_id is None:
                 folder_id = self.get_folder_id(yesterday)
-                if not folder_id:
-                    print(f"Parent folder ID: {parent_folder_id}")
+                if folder_id:
+                    print(f"Folder '{yesterday}' already exists with ID: {folder_id}")
+                else:
+                    print(f"Folder '{yesterday}' does not exist. Creating it...")
                     try:
                         self.service.files().get(fileId=parent_folder_id).execute()
                     except Exception as e:
