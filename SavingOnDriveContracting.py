@@ -56,15 +56,21 @@ class SavingOnDriveContracting:
                 parent_folder_id = '1HDaiX9adrEsAx74dRlbmgMZMm_eeVyHM'
                 yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
                 folder_id = self.create_folder(yesterday, parent_folder_id)
-         
-            uploaded_files = []
+        
             for file_name in files:
                 try:
-                    file_id = self.upload_file(file_name, folder_id)
-                    uploaded_files.append(file_id)
-                    print(f"Successfully uploaded {file_name}, file ID: {file_id}")
+                    # Verify file exists before upload
+                    if not os.path.exists(file_name):
+                        print(f"Error: File {file_name} does not exist")
+                        continue
+                
+                    file_metadata = {'name': os.path.basename(file_name), 'parents': [folder_id]}
+                    media = MediaFileUpload(file_name, resumable=True)
+                    file = self.service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+                    print(f"Uploaded {file_name}, file ID: {file.get('id')}")
                 except Exception as upload_error:
-                    print(f"Error uploading {file_name}: {upload_error}")
+                    print(f"Detailed upload error for {file_name}: {upload_error}")
+                    raise
         
             return folder_id
         except Exception as e:
