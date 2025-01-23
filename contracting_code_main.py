@@ -250,6 +250,7 @@ class ContractingMainScraper:
         self.chunk_delay = 10
 
     def setup_logging(self):
+        """Initialize logging configuration."""
         stream_handler = logging.StreamHandler()
         file_handler = logging.FileHandler("scraper.log")
 
@@ -262,6 +263,7 @@ class ContractingMainScraper:
         print("Logging setup complete.")
 
     async def scrape_contractingANDservice(self, contractingANDservice_name: str, urls: List[Tuple[str, int]], semaphore: asyncio.Semaphore) -> List[Dict]:
+        """Scrape data for a single category."""
         self.logger.info(f"Starting to scrape {contractingANDservice_name}")
         card_data = []
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -285,6 +287,7 @@ class ContractingMainScraper:
         return card_data
 
     async def save_to_excel(self, contractingANDservice_name: str, card_data: List[Dict]) -> str:
+        """Save scraped data to an Excel file."""
         if not card_data:
             self.logger.info(f"No data to save for {contractingANDservice_name}, skipping Excel file creation.")
             return None
@@ -300,6 +303,7 @@ class ContractingMainScraper:
             return None
 
     async def upload_files_with_retry(self, drive_saver, files: List[str]) -> List[str]:
+        """Upload files to Google Drive with retry mechanism."""
         uploaded_files = []
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
@@ -331,19 +335,20 @@ class ContractingMainScraper:
         return uploaded_files
 
     async def scrape_all_contractingANDservices(self):
+        """Scrape all categories and handle uploads."""
         self.temp_dir.mkdir(exist_ok=True)
 
+        # Setup Google Drive
         try:
             credentials_json = os.environ.get("CONTRACTING_GCLOUD_KEY_JSON")
             if not credentials_json:
                 raise EnvironmentError("CONTRACTING_GCLOUD_KEY_JSON environment variable not found")
             else:
-                print("Environment variable CONTRACTING_GCLOUD_KEY_JSON is set.")
+                self.logger.info("Environment variable CONTRACTING_GCLOUD_KEY_JSON is set.")
 
             credentials_dict = json.loads(credentials_json)
             drive_saver = SavingOnDriveContracting(credentials_dict)
             drive_saver.authenticate()
-            drive_saver.list_files()
         except Exception as e:
             self.logger.error(f"Failed to setup Google Drive: {e}")
             return
