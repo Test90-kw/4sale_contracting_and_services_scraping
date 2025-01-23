@@ -24,18 +24,36 @@ class ContractingMainScraper:
         self.page_delay = 3  # Delay between page requests
         self.chunk_delay = 10  # Delay between chunks
 
+    # def setup_logging(self):
+    #     """Initialize logging configuration."""
+    #     logging.basicConfig(
+    #         level=logging.INFO,
+    #         format="%(asctime)s - %(levelname)s - %(message)s",
+    #         handlers=[
+    #             logging.StreamHandler(),
+    #             logging.FileHandler("scraper.log"),
+    #         ],
+    #     )
+    #     self.logger.setLevel(logging.INFO)
+
     def setup_logging(self):
         """Initialize logging configuration."""
+        stream_handler = logging.StreamHandler()
+        stream_handler.setLevel(logging.INFO)
+        stream_handler.flush = True
+
         logging.basicConfig(
             level=logging.INFO,
             format="%(asctime)s - %(levelname)s - %(message)s",
             handlers=[
-                logging.StreamHandler(),
+                stream_handler,
                 logging.FileHandler("scraper.log"),
             ],
         )
         self.logger.setLevel(logging.INFO)
+        print("Logging setup complete.")
 
+    
     async def scrape_contractingANDservice(self, contractingANDservice_name: str, urls: List[Tuple[str, int]], semaphore: asyncio.Semaphore) -> List[Dict]:
         """Scrape data for a single category."""
         self.logger.info(f"Starting to scrape {contractingANDservice_name}")
