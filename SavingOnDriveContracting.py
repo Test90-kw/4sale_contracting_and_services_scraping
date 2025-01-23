@@ -32,24 +32,45 @@ class SavingOnDriveContracting:
         file = self.service.files().create(body=file_metadata, media_body=media, fields='id').execute()
         return file.get('id')
 
+    # def save_files(self, files, folder_id=None):
+    #     """
+    #     Upload files to Google Drive.
+        
+    #     Args:
+    #         files (list): List of file names to upload
+    #         folder_id (str, optional): ID of the folder to upload to. If None, creates a new folder
+    #     """
+    #     if folder_id is None:
+    #         parent_folder_id = '1HDaiX9adrEsAx74dRlbmgMZMm_eeVyHM'  # ID of "Property Scraper Uploads"
+    #         yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    #         folder_id = self.create_folder(yesterday, parent_folder_id)
+
+    #     for file_name in files:
+    #         self.upload_file(file_name, folder_id)
+        
+    #     return folder_id
+    
     def save_files(self, files, folder_id=None):
-        """
-        Upload files to Google Drive.
+        try:
+            if folder_id is None:
+                parent_folder_id = '1HDaiX9adrEsAx74dRlbmgMZMm_eeVyHM'
+                yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+                folder_id = self.create_folder(yesterday, parent_folder_id)
+         
+            uploaded_files = []
+            for file_name in files:
+                try:
+                    file_id = self.upload_file(file_name, folder_id)
+                    uploaded_files.append(file_id)
+                    print(f"Successfully uploaded {file_name}, file ID: {file_id}")
+                except Exception as upload_error:
+                    print(f"Error uploading {file_name}: {upload_error}")
         
-        Args:
-            files (list): List of file names to upload
-            folder_id (str, optional): ID of the folder to upload to. If None, creates a new folder
-        """
-        if folder_id is None:
-            parent_folder_id = '1HDaiX9adrEsAx74dRlbmgMZMm_eeVyHM'  # ID of "Property Scraper Uploads"
-            yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-            folder_id = self.create_folder(yesterday, parent_folder_id)
-
-        for file_name in files:
-            self.upload_file(file_name, folder_id)
-        
-        return folder_id
-
+            return folder_id
+        except Exception as e:
+            print(f"Comprehensive save_files error: {e}")
+            raise
+    
     def get_folder_id(self, folder_name):
         try:
             query = f"name = '{folder_name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
