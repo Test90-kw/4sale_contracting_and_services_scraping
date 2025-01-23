@@ -136,6 +136,9 @@ class ContractingMainScraper:
             credentials_json = os.environ.get("CONTRACTING_GCLOUD_KEY_JSON")
             if not credentials_json:
                 raise EnvironmentError("CONTRACTING_GCLOUD_KEY_JSON environment variable not found")
+            else:
+                print("Environment variable CONTRACTING_GCLOUD_KEY_JSON is set.")
+
             credentials_dict = json.loads(credentials_json)
             drive_saver = SavingOnDriveContracting(credentials_dict)
             drive_saver.authenticate()
