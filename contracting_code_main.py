@@ -139,6 +139,7 @@ class ContractingMainScraper:
             credentials_dict = json.loads(credentials_json)
             drive_saver = SavingOnDriveContracting(credentials_dict)
             drive_saver.authenticate()
+            drive_saver.list_files()
         except Exception as e:
             self.logger.error(f"Failed to setup Google Drive: {e}")
             return
