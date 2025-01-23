@@ -40,6 +40,11 @@ jobs:
           npm cache clear --force
           npm install
 
+      - name: Debug Environment Variables
+        run: |
+          echo "Checking CONTRACTING_GCLOUD_KEY_JSON..."
+          echo $CONTRACTING_GCLOUD_KEY_JSON | head -c 50
+
       - name: Run the scraper
         env:
           CONTRACTING_GCLOUD_KEY_JSON: ${{ secrets.CONTRACTING_GCLOUD_KEY_JSON }}
