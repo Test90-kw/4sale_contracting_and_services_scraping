@@ -41,6 +41,12 @@ jobs:
         run: |
           python services_code_main.py
 
+      - name: Run the scraper2
+        env:
+          SERVICES_GCLOUD_KEY_JSON: ${{ secrets.SERVICES_GCLOUD_KEY_JSON }}
+        run: |
+          python medical_services.py
+
       - name: Upload Logs
         if: always()
         uses: actions/upload-artifact@v3
