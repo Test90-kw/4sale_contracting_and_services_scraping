@@ -188,15 +188,15 @@ if __name__ == "__main__":
         "خدمات مختلفة": [("https://www.q84sale.com/ar/services/other-services/{}", 1)],
     }
     
-    contractingANDservices_data_2 = {
-        "خدمات طبية": ("https://www.q84sale.com/ar/services/medical-services{}", 1, ["تمريض"], 2),
-    }
+    # contractingANDservices_data_2 = {
+    #     "خدمات طبية": ("https://www.q84sale.com/ar/services/medical-services{}", 1, ["تمريض"], 2),
+    # }
     
     async def main():
         scraper = ServicesMainScraper(contractingANDservices_data)
         await scraper.scrape_all_contractingANDservices()
         
-        scraper2 = CarScraper(contractingANDservices_data_2)
-        await scraper2.scrape_brands_and_types()
+        # scraper2 = CarScraper(contractingANDservices_data_2)
+        # await scraper2.scrape_brands_and_types()
 
     asyncio.run(main())
