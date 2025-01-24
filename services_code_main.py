@@ -115,11 +115,11 @@ class ServicesMainScraper:
 
         # Setup Google Drive
         try:
-            credentials_json = os.environ.get("CONTRACTING_GCLOUD_KEY_JSON")
+            credentials_json = os.environ.get("SERVICES_GCLOUD_KEY_JSON")
             if not credentials_json:
-                raise EnvironmentError("CONTRACTING_GCLOUD_KEY_JSON environment variable not found")
+                raise EnvironmentError("SERVICES_GCLOUD_KEY_JSON environment variable not found")
             else:
-                self.logger.info("Environment variable CONTRACTING_GCLOUD_KEY_JSON is set.")
+                self.logger.info("Environment variable SERVICES_GCLOUD_KEY_JSON is set.")
 
             credentials_dict = json.loads(credentials_json)
             drive_saver = SavingOnDriveContracting(credentials_dict)
