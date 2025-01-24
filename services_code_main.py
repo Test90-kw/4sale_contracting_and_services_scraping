@@ -138,6 +138,13 @@ class ServicesMainScraper:
             credentials_dict = json.loads(credentials_json)
             drive_saver = SavingOnDriveContracting(credentials_dict)
             drive_saver.authenticate()
+            self.logger.info("Testing Drive API access...")
+            try:
+                drive_saver.service.files().get(fileId=drive_saver.parent_folder_id).execute()
+                self.logger.info("Successfully accessed parent folder")
+            except Exception as e:
+                self.logger.error(f"Failed to access parent folder: {e}")
+                return
         except Exception as e:
             self.logger.error(f"Failed to setup Google Drive: {e}")
             return
