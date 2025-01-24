@@ -1,49 +1,3 @@
-# import os
-# import json
-# from google.oauth2.service_account import Credentials
-# from googleapiclient.discovery import build
-# from googleapiclient.http import MediaFileUpload
-# from datetime import datetime, timedelta
-
-
-# class SavingOnDriveServices:
-#     def __init__(self, credentials_dict):
-#         self.credentials_dict = credentials_dict
-#         self.scopes = ['https://www.googleapis.com/auth/drive']
-#         self.service = None
-
-#     def authenticate(self):
-#         # Load credentials directly from the JSON content
-#         creds = Credentials.from_service_account_info(self.credentials_dict, scopes=self.scopes)
-#         self.service = build('drive', 'v3', credentials=creds)
-
-#     def create_folder(self, folder_name, parent_folder_id=None):
-#         file_metadata = {
-#             'name': folder_name,
-#             'mimeType': 'application/vnd.google-apps.folder'
-#         }
-#         if parent_folder_id:
-#             file_metadata['parents'] = [parent_folder_id]
-
-#         folder = self.service.files().create(body=file_metadata, fields='id').execute()
-#         return folder.get('id')
-
-#     def upload_file(self, file_name, folder_id):
-#         file_metadata = {'name': file_name, 'parents': [folder_id]}
-#         media = MediaFileUpload(file_name, resumable=True)
-#         file = self.service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-#         return file.get('id')
-
-#     def save_files(self, files):
-#         parent_folder_id = '1dwoFxJ4F56HIfaUrRk3QufXDE1QlotzA'  # ID of "Property Scraper Uploads"
-
-#         yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-#         folder_id = self.create_folder(yesterday, parent_folder_id)
-
-#         for file_name in files:
-#             self.upload_file(file_name, folder_id)
-#         print(f"Files uploaded successfully to folder '{yesterday}' on Google Drive.")
-
 import os
 import json
 from google.oauth2.service_account import Credentials
@@ -95,79 +49,42 @@ class SavingOnDriveContracting:
             return None
 
     def create_folder(self, folder_name):
+        """Create a new folder in the parent folder."""
         try:
             print(f"Creating folder '{folder_name}'...")
-        
-            # Test folder creation with additional parameters
             file_metadata = {
                 'name': folder_name,
                 'mimeType': 'application/vnd.google-apps.folder',
                 'parents': [self.parent_folder_id]
             }
-
             folder = self.service.files().create(
                 body=file_metadata,
-                fields='id, name, parents, permissions',
-                supportsAllDrives=True,
-                supportsTeamDrives=True
+                fields='id'
             ).execute()
-
-            # Add explicit read permission
-            permission = {
-                'type': 'owner',
-                'role': 'editor',
-                'emailAddress': 'dataloopskw.code@gmail.com'
-            }
-        
-            self.service.permissions().create(
-                fileId=folder.get('id'),
-                body=permission,
-                fields='id',
-                supportsAllDrives=True,
-                supportsTeamDrives=True
-            ).execute()
-        
+            print(f"Folder '{folder_name}' created with ID: {folder.get('id')}")
             return folder.get('id')
-        
         except Exception as e:
-            print(f"Folder creation error: {str(e)}")
+            print(f"Error creating folder: {e}")
             raise
-        
+
     def upload_file(self, file_name, folder_id):
         """Upload a single file to Google Drive."""
         try:
-            print(f"Starting upload for: {file_name}")
-            # Verify file exists locally
-            if not os.path.exists(file_name):
-                raise FileNotFoundError(f"Local file not found: {file_name}")
-            print(f"Local file size: {os.path.getsize(file_name)} bytes")
-        
-            # Verify target folder exists
-            folder = self.service.files().get(fileId=folder_id).execute()
-            print(f"Upload target folder: {folder.get('name')}")
-        
+            print(f"Uploading file: {file_name}")
             file_metadata = {
                 'name': os.path.basename(file_name),
                 'parents': [folder_id]
             }
-        
             media = MediaFileUpload(file_name, resumable=True)
-            request = self.service.files().create(
+            file = self.service.files().create(
                 body=file_metadata,
                 media_body=media,
-                fields='id, name'
-            )
-        
-            response = None
-            while response is None:
-                status, response = request.next_chunk()
-                if status:
-                    print(f"Upload progress: {int(status.progress() * 100)}%")
-                
-            print(f"Upload complete response: {response}")
-            return response.get('id')
+                fields='id'
+            ).execute()
+            print(f"File '{file_name}' uploaded with ID: {file.get('id')}")
+            return file.get('id')
         except Exception as e:
-            print(f"Detailed upload error: {str(e)}")
+            print(f"Error uploading file: {e}")
             raise
 
     def save_files(self, files):
