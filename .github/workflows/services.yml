@@ -1,8 +1,8 @@
-name: Contracts Workflow
+name: Services Workflow
 
 on:
   schedule:
-    - cron: "10 0 * * *" # Runs every day
+    - cron: "10 2 * * *" # Runs every day
   workflow_dispatch:
 
 jobs:
@@ -26,8 +26,8 @@ jobs:
 
       - name: Debug Environment Variables
         run: |
-          echo "Checking CONTRACTING_GCLOUD_KEY_JSON..."
-          echo $CONTRACTING_GCLOUD_KEY_JSON | head -c 50
+          echo "Checking SERVICES_GCLOUD_KEY_JSON..."
+          echo $SERVICES_GCLOUD_KEY_JSON | head -c 50
       
       - name: Install Playwright for Python
         run: |
@@ -37,9 +37,9 @@ jobs:
       
       - name: Run the scraper
         env:
-          CONTRACTING_GCLOUD_KEY_JSON: ${{ secrets.CONTRACTING_GCLOUD_KEY_JSON }}
+          SERVICES_GCLOUD_KEY_JSON: ${{ secrets.SERVICES_GCLOUD_KEY_JSON }}
         run: |
-          python contracting_code_main.py
+          python services_code_main.py
 
       - name: Upload Logs
         if: always()
