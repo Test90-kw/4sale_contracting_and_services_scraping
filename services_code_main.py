@@ -83,32 +83,46 @@ class ServicesMainScraper:
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
         try:
+            self.logger.info(f"Checking local files before upload: {files}")
+            for file in files:
+                self.logger.info(f"File {file} exists: {os.path.exists(file)}, size: {os.path.getsize(file) if os.path.exists(file) else 'N/A'}")
+ 
             folder_id = drive_saver.get_folder_id(yesterday)
             if not folder_id:
+                self.logger.info(f"Creating new folder for date: {yesterday}")
                 folder_id = drive_saver.create_folder(yesterday)
-                self.logger.info(f"Created new folder '{yesterday}'")
+                if not folder_id:
+                    raise Exception("Failed to create or get folder ID")
+                self.logger.info(f"Created new folder '{yesterday}' with ID: {folder_id}")
 
             for file in files:
                 for attempt in range(self.upload_retries):
                     try:
                         if os.path.exists(file):
-                            drive_saver.upload_file(file, folder_id)
+                            file_id = drive_saver.upload_file(file, folder_id)
+                            if not file_id:
+                                raise Exception("Upload returned no file ID")
                             uploaded_files.append(file)
-                            self.logger.info(f"Successfully uploaded {file} to Google Drive folder '{yesterday}'")
+                            self.logger.info(f"Successfully uploaded {file} with ID: {file_id}")
+                            break
+                        else:
+                            self.logger.error(f"File not found for upload: {file}")
                             break
                     except Exception as e:
                         self.logger.error(f"Upload attempt {attempt + 1} failed for {file}: {e}")
                         if attempt < self.upload_retries - 1:
+                            self.logger.info(f"Retrying after {self.upload_retry_delay} seconds...")
                             await asyncio.sleep(self.upload_retry_delay)
-                            drive_saver.authenticate()
+                            drive_saver.authenticate()  # Re-authenticate before retry
                         else:
                             self.logger.error(f"Failed to upload {file} after {self.upload_retries} attempts")
 
         except Exception as e:
-            self.logger.error(f"Error managing Google Drive folder for {yesterday}: {e}")
+            self.logger.error(f"Error in upload process: {e}")
+            raise
 
         return uploaded_files
-
+    
     async def scrape_all_contractingANDservices(self):
         """Scrape all categories and handle uploads."""
         self.temp_dir.mkdir(exist_ok=True)
