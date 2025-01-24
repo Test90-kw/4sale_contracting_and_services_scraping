@@ -221,7 +221,7 @@ class MedicalServices:
 
             brand_data = await self.scrape_brands_and_types()
             if brand_data:
-                excel_file = await self.save_to_excel("medical_services", brand_data)
+                excel_file = await self.save_to_excel("خدمات طبية", brand_data)
                 if excel_file:
                     file_id = self.upload_file(excel_file, folder_id)
                     self.logger.info(f"Successfully uploaded file with ID: {file_id}")
