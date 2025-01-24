@@ -12,6 +12,7 @@ from googleapiclient.http import MediaFileUpload
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import socket
 import ssl
+from DetailsScraper import DetailsScraping
 
 class MedicalServices:
     def __init__(self, credentials_dict, url, num_pages=1, specific_brands=None, specific_pages=None):
@@ -94,40 +95,6 @@ class MedicalServices:
             self.logger.error(f"Error creating folder: {e}")
             raise
 
-    async def get_card_details(self, page_url):
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
-            await page.goto(page_url)
-            
-            cards = []
-            card_elements = await page.query_selector_all('.styles_cardWrapper__sN8y1')
-            
-            for card in card_elements:
-                try:
-                    date_element = await card.query_selector('.styles_date__BH_Vg')
-                    title_element = await card.query_selector('.styles_title__jWYTJ')
-                    price_element = await card.query_selector('.styles_price__w9jW1')
-                    description_element = await card.query_selector('.styles_description__YqzYV')
-                    
-                    date = await date_element.text_content() if date_element else None
-                    title = await title_element.text_content() if title_element else None
-                    price = await price_element.text_content() if price_element else None
-                    description = await description_element.text_content() if description_element else None
-                    
-                    cards.append({
-                        'date_published': date,
-                        'title': title,
-                        'price': price,
-                        'description': description
-                    })
-                except Exception as e:
-                    self.logger.error(f"Error extracting card details: {e}")
-                    continue
-                    
-            await browser.close()
-            return cards
-
     async def scrape_brands_and_types(self):
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
@@ -152,9 +119,10 @@ class MedicalServices:
                     for page_num in range(1, pages_to_scrape + 1):
                         paginated_link = f"{full_brand_link}/{page_num}"
                         try:
-                            car_details = await self.get_card_details(paginated_link)
-                            if car_details:
-                                brand_data.extend(car_details)
+                            details_scraper = DetailsScraping(paginated_link)
+                            card_details = await details_scraper.get_card_details()
+                            if card_details:
+                                brand_data.extend(card_details)
                             else:
                                 break
                         except Exception as e:
@@ -170,15 +138,38 @@ class MedicalServices:
             await browser.close()
             return self.data
 
-    async def save_to_excel(self, category_name: str, card_data: list) -> str:
-        if not card_data:
+    async def save_to_excel(self, category_name: str, brand_data: list) -> str:
+        if not brand_data:
             self.logger.info(f"No data to save for {category_name}")
             return None
 
         excel_file = Path(f"{category_name}.xlsx")
+        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        
         try:
-            df = pd.DataFrame(card_data)
-            df.to_excel(excel_file, index=False)
+            with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
+                sheets_created = False
+                
+                for brand in brand_data:
+                    brand_title = brand['brand_title']
+                    cars = brand['available_cars']
+                    
+                    yesterday_cars = [
+                        car for car in cars 
+                        if car.get('date_published') and car['date_published'].split()[0] == yesterday
+                    ]
+                    
+                    if yesterday_cars:
+                        df = pd.DataFrame(yesterday_cars)
+                        sheet_name = "".join(x for x in brand_title if x.isalnum())[:31]
+                        df.to_excel(writer, sheet_name=sheet_name, index=False)
+                        sheets_created = True
+                        self.logger.info(f"Created sheet for {brand_title} with {len(yesterday_cars)} entries")
+                
+                if not sheets_created:
+                    self.logger.info("No data from yesterday found for any brand")
+                    return None
+                
             self.logger.info(f"Successfully saved data for {category_name}")
             return str(excel_file)
         except Exception as e:
