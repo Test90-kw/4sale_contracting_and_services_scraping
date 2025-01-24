@@ -95,23 +95,10 @@ class SavingOnDriveContracting:
             return None
 
     def create_folder(self, folder_name):
-        """Create a new folder in the parent folder."""
         try:
             print(f"Creating folder '{folder_name}'...")
-          
-            # First verify parent folder exists and is accessible
-            try:
-                parent = self.service.files().get(
-                    fileId=self.parent_folder_id, 
-                    fields='name, capabilities'
-                ).execute()
-                print(f"Parent folder exists: {parent.get('name')}")
-                if not parent.get('capabilities', {}).get('canAddChildren'):
-                    raise Exception("No write permission on parent folder")
-            except Exception as e:
-                print(f"Parent folder check failed: {e}")
-                return None
-
+        
+            # Test folder creation with additional parameters
             file_metadata = {
                 'name': folder_name,
                 'mimeType': 'application/vnd.google-apps.folder',
@@ -120,19 +107,31 @@ class SavingOnDriveContracting:
 
             folder = self.service.files().create(
                 body=file_metadata,
-                fields='id, name',
-                supportsAllDrives=True
+                fields='id, name, parents, permissions',
+                supportsAllDrives=True,
+                supportsTeamDrives=True
+            ).execute()
+
+            # Add explicit read permission
+            permission = {
+                'type': 'owner',
+                'role': 'editor',
+                'emailAddress': 'dataloopskw.code@gmail.com'
+            }
+        
+            self.service.permissions().create(
+                fileId=folder.get('id'),
+                body=permission,
+                fields='id',
+                supportsAllDrives=True,
+                supportsTeamDrives=True
             ).execute()
         
-            if not folder or not folder.get('id'):
-                raise Exception("Folder creation returned no ID")
-            
-            print(f"Created folder: {folder.get('name')} with ID: {folder.get('id')}")
             return folder.get('id')
         
         except Exception as e:
-            print(f"Folder creation error: {e}")
-            return None
+            print(f"Folder creation error: {str(e)}")
+            raise
         
     def upload_file(self, file_name, folder_id):
         """Upload a single file to Google Drive."""
