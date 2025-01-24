@@ -95,51 +95,76 @@ class SavingOnDriveContracting:
             return None
 
     def create_folder(self, folder_name):
+        """Create a new folder in the parent folder."""
         try:
             print(f"Creating folder '{folder_name}'...")
+            # Check parent folder exists
+            parent = self.service.files().get(fileId=self.parent_folder_id).execute()
+            print(f"Parent folder found: {parent.get('name')}")
+        
             file_metadata = {
                 'name': folder_name,
                 'mimeType': 'application/vnd.google-apps.folder',
                 'parents': [self.parent_folder_id]
             }
-            # Add permission check
-            self.service.files().get(fileId=self.parent_folder_id).execute()
+        
+            # List existing folders before creation
+            existing_folders = self.service.files().list(
+                q=f"mimeType='application/vnd.google-apps.folder' and '{self.parent_folder_id}' in parents",
+                fields='files(id, name)'
+            ).execute()
+            print(f"Existing folders: {[f['name'] for f in existing_folders.get('files', [])]}")
         
             folder = self.service.files().create(
                 body=file_metadata,
-                fields='id'
-            ).execute()
-        
-            # Verify folder creation
-            created_folder = self.service.files().get(
-                fileId=folder.get('id'),
                 fields='id, name'
             ).execute()
+            print(f"Folder creation response: {folder}")
         
-            print(f"Folder '{folder_name}' created and verified with ID: {folder.get('id')}")
+            # Verify folder was created
+            created = self.service.files().get(fileId=folder.get('id')).execute()
+            print(f"Verified folder creation: {created}")
+        
             return folder.get('id')
         except Exception as e:
-            print(f"Error creating folder: {e}")
+            print(f"Detailed error creating folder: {str(e)}")
             raise
 
     def upload_file(self, file_name, folder_id):
         """Upload a single file to Google Drive."""
         try:
-            print(f"Uploading file: {file_name}")
+            print(f"Starting upload for: {file_name}")
+            # Verify file exists locally
+            if not os.path.exists(file_name):
+                raise FileNotFoundError(f"Local file not found: {file_name}")
+            print(f"Local file size: {os.path.getsize(file_name)} bytes")
+        
+            # Verify target folder exists
+            folder = self.service.files().get(fileId=folder_id).execute()
+            print(f"Upload target folder: {folder.get('name')}")
+        
             file_metadata = {
                 'name': os.path.basename(file_name),
                 'parents': [folder_id]
             }
+        
             media = MediaFileUpload(file_name, resumable=True)
-            file = self.service.files().create(
+            request = self.service.files().create(
                 body=file_metadata,
                 media_body=media,
-                fields='id'
-            ).execute()
-            print(f"File '{file_name}' uploaded with ID: {file.get('id')}")
-            return file.get('id')
+                fields='id, name'
+            )
+        
+            response = None
+            while response is None:
+                status, response = request.next_chunk()
+                if status:
+                    print(f"Upload progress: {int(status.progress() * 100)}%")
+                
+            print(f"Upload complete response: {response}")
+            return response.get('id')
         except Exception as e:
-            print(f"Error uploading file: {e}")
+            print(f"Detailed upload error: {str(e)}")
             raise
 
     def save_files(self, files):
