@@ -95,7 +95,6 @@ class SavingOnDriveContracting:
             return None
 
     def create_folder(self, folder_name):
-        """Create a new folder in the parent folder."""
         try:
             print(f"Creating folder '{folder_name}'...")
             file_metadata = {
@@ -103,11 +102,21 @@ class SavingOnDriveContracting:
                 'mimeType': 'application/vnd.google-apps.folder',
                 'parents': [self.parent_folder_id]
             }
+            # Add permission check
+            self.service.files().get(fileId=self.parent_folder_id).execute()
+        
             folder = self.service.files().create(
                 body=file_metadata,
                 fields='id'
             ).execute()
-            print(f"Folder '{folder_name}' created with ID: {folder.get('id')}")
+        
+            # Verify folder creation
+            created_folder = self.service.files().get(
+                fileId=folder.get('id'),
+                fields='id, name'
+            ).execute()
+        
+            print(f"Folder '{folder_name}' created and verified with ID: {folder.get('id')}")
             return folder.get('id')
         except Exception as e:
             print(f"Error creating folder: {e}")
