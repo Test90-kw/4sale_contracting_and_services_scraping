@@ -1,3 +1,4 @@
+# Required libraries for async operations, scraping, data handling, and Google Drive API.
 import asyncio
 import pandas as pd
 import os
@@ -12,28 +13,29 @@ from googleapiclient.http import MediaFileUpload
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import socket
 import ssl
-from DetailsScraper import DetailsScraping
+from DetailsScraper import DetailsScraping  # Custom scraper module
+
 
 class MedicalServices:
     def __init__(self, credentials_dict, url, num_pages=1, specific_brands=None, specific_pages=None):
-        # Drive initialization
+        # Google Drive credentials and setup
         self.credentials_dict = credentials_dict
         self.scopes = ['https://www.googleapis.com/auth/drive']
         self.service = None
-        self.parent_folder_id = '1dwoFxJ4F56HIfaUrRk3QufXDE1QlotzA'
-        
-        # Scraping initialization
-        self.url = url
-        self.num_pages = num_pages
-        self.specific_brands = specific_brands or []
-        self.specific_pages = specific_pages if specific_pages else num_pages
-        self.data = []
+        self.parent_folder_id = '1dwoFxJ4F56HIfaUrRk3QufXDE1QlotzA'  # Parent folder on Google Drive
 
-        # Main scraper initialization
+        # Scraping setup
+        self.url = url
+        self.num_pages = num_pages  # Default pages to scrape per brand
+        self.specific_brands = specific_brands or []  # Brands requiring special treatment
+        self.specific_pages = specific_pages if specific_pages else num_pages
+        self.data = []  # Will hold scraped data
+
+        # General scraper settings
         self.chunk_size = 2
         self.max_concurrent_links = 2
         self.logger = logging.getLogger(__name__)
-        self.setup_logging()
+        self.setup_logging()  # Setup logging to file and console
         self.temp_dir = Path("temp_files")
         self.temp_dir.mkdir(exist_ok=True)
         self.upload_retries = 3
@@ -42,6 +44,7 @@ class MedicalServices:
         self.chunk_delay = 10
 
     def setup_logging(self):
+        # Configure logging to show output in console and save to file
         stream_handler = logging.StreamHandler()
         file_handler = logging.FileHandler("scraper.log")
         logging.basicConfig(
@@ -52,6 +55,7 @@ class MedicalServices:
         self.logger.setLevel(logging.INFO)
 
     def authenticate(self):
+        # Authenticate to Google Drive using the service account
         try:
             creds = Credentials.from_service_account_info(self.credentials_dict, scopes=self.scopes)
             self.service = build('drive', 'v3', credentials=creds)
@@ -59,10 +63,12 @@ class MedicalServices:
             self.logger.error(f"Authentication error: {e}")
             raise
 
+    # Retry up to 3 times for network-related issues
     @retry(stop=stop_after_attempt(3), 
            wait=wait_exponential(multiplier=1, min=4, max=10),
            retry=retry_if_exception_type((socket.error, ssl.SSLError, ConnectionError)))
     def get_folder_id(self, folder_name):
+        # Search for a folder by name under the parent folder
         try:
             query = (f"name='{folder_name}' and "
                     f"'{self.parent_folder_id}' in parents and "
@@ -78,10 +84,12 @@ class MedicalServices:
             self.logger.error(f"Error getting folder ID: {e}")
             raise
 
+    # Retry folder creation for network errors
     @retry(stop=stop_after_attempt(3),
            wait=wait_exponential(multiplier=1, min=4, max=10),
            retry=retry_if_exception_type((socket.error, ssl.SSLError, ConnectionError)))
     def create_folder(self, folder_name):
+        # Create a new folder on Google Drive inside the parent folder
         try:
             file_metadata = {
                 'name': folder_name,
@@ -96,6 +104,12 @@ class MedicalServices:
             raise
 
     async def scrape_brands_and_types(self):
+        # Launch Playwright browser and navigate to the main URL
+        # Scrape all brand links and titles
+        # For each brand:
+        #     - Build paginated URLs
+        #     - Scrape data using DetailsScraping class
+        #     - Collect only cards if present
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
@@ -139,6 +153,9 @@ class MedicalServices:
             return self.data
 
     async def save_to_excel(self, category_name: str, brand_data: list) -> str:
+        # Create an Excel workbook where each brand has its own sheet
+        # Only include cards that were published "yesterday"
+        # Return the path to the saved Excel file
         if not brand_data:
             self.logger.info(f"No data to save for {category_name}")
             return None
@@ -176,10 +193,12 @@ class MedicalServices:
             self.logger.error(f"Error saving Excel file {excel_file}: {e}")
             return None
 
+    # Upload file to Google Drive with retry logic
     @retry(stop=stop_after_attempt(3),
            wait=wait_exponential(multiplier=1, min=4, max=10),
            retry=retry_if_exception_type((socket.error, ssl.SSLError, ConnectionError)))
     def upload_file(self, file_name: str, folder_id: str) -> str:
+        # Upload a local file to the specified Drive folder
         try:
             if not os.path.exists(file_name):
                 raise FileNotFoundError(f"Local file not found: {file_name}")
@@ -200,6 +219,13 @@ class MedicalServices:
             raise
 
     async def process_medical_services(self):
+        # Main function to handle scraping and uploading
+        # 1. Authenticate
+        # 2. Create/Get folder for yesterday
+        # 3. Scrape brand/type data
+        # 4. Save Excel if there are results from yesterday
+        # 5. Upload file to Drive
+        # 6. Clean up local file
         self.temp_dir.mkdir(exist_ok=True)
         try:
             self.authenticate()
@@ -224,10 +250,12 @@ class MedicalServices:
             raise
 
 if __name__ == "__main__":
+    # Load credentials from environment variable
     credentials_json = os.environ.get("SERVICES_GCLOUD_KEY_JSON")
     if not credentials_json:
         raise EnvironmentError("SERVICES_GCLOUD_KEY_JSON environment variable not found")
-    
+
+    # Parse credentials and initialize MedicalServices
     credentials_dict = json.loads(credentials_json)
     medical_services = MedicalServices(
         credentials_dict=credentials_dict,
@@ -236,5 +264,6 @@ if __name__ == "__main__":
         specific_brands=["تمريض"],
         specific_pages=2
     )
-    
+
+    # Run the complete process
     asyncio.run(medical_services.process_medical_services())
