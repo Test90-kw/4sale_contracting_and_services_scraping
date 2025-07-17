@@ -1,3 +1,4 @@
+# Import required libraries
 import asyncio
 import pandas as pd
 import os
@@ -6,28 +7,39 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 from pathlib import Path
+
+# Importing custom modules for scraping and Google Drive upload
 from DetailsScraper import DetailsScraping
 from SavingOnDriveServices import SavingOnDriveServices
 
 
 class ServicesMainScraper:
     def __init__(self, contractingANDservices_data: Dict[str, List[Tuple[str, int]]]):
+        # Dictionary of categories and URLs with their respective page counts
         self.contractingANDservices_data = contractingANDservices_data
-        self.chunk_size = 2
-        self.max_concurrent_links = 2
+
+        # Control parameters
+        self.chunk_size = 2  # Number of categories to process in each chunk
+        self.max_concurrent_links = 2  # Max concurrent scraping operations
+
+        # Logging setup
         self.logger = logging.getLogger(__name__)
         self.setup_logging()
+
+        # Temp file directory setup
         self.temp_dir = Path("temp_files")
         self.temp_dir.mkdir(exist_ok=True)
+
+        # Retry and delay settings
         self.upload_retries = 3
-        self.upload_retry_delay = 15
-        self.page_delay = 3
-        self.chunk_delay = 10
+        self.upload_retry_delay = 15  # seconds
+        self.page_delay = 3  # Delay between page scrapes
+        self.chunk_delay = 10  # Delay between processing chunks
 
     def setup_logging(self):
         """Initialize logging configuration."""
-        stream_handler = logging.StreamHandler()
-        file_handler = logging.FileHandler("scraper.log")
+        stream_handler = logging.StreamHandler()  # Logs to console
+        file_handler = logging.FileHandler("scraper.log")  # Logs to file
 
         logging.basicConfig(
             level=logging.INFO,
@@ -43,18 +55,19 @@ class ServicesMainScraper:
         card_data = []
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
+        # Use semaphore to limit concurrent scrapes
         async with semaphore:
             for url_template, page_count in urls:
                 for page in range(1, page_count + 1):
                     url = url_template.format(page)
                     scraper = DetailsScraping(url)
                     try:
-                        cards = await scraper.get_card_details()
+                        cards = await scraper.get_card_details()  # Get cards from page
                         for card in cards:
                             if card.get("date_published") and card.get("date_published", "").split()[0] == yesterday:
-                                card_data.append(card)
+                                card_data.append(card)  # Filter only yesterday's data
 
-                        await asyncio.sleep(self.page_delay)
+                        await asyncio.sleep(self.page_delay)  # Delay between page scrapes
                     except Exception as e:
                         self.logger.error(f"Error scraping {url}: {e}")
                         continue
@@ -87,6 +100,7 @@ class ServicesMainScraper:
             for file in files:
                 self.logger.info(f"File {file} exists: {os.path.exists(file)}, size: {os.path.getsize(file) if os.path.exists(file) else 'N/A'}")
  
+            # Get or create a folder for yesterday's date
             folder_id = drive_saver.get_folder_id(yesterday)
             if not folder_id:
                 self.logger.info(f"Creating new folder for date: {yesterday}")
@@ -95,6 +109,7 @@ class ServicesMainScraper:
                     raise Exception("Failed to create or get folder ID")
                 self.logger.info(f"Created new folder '{yesterday}' with ID: {folder_id}")
 
+            # Try uploading each file with retry logic
             for file in files:
                 for attempt in range(self.upload_retries):
                     try:
@@ -122,12 +137,12 @@ class ServicesMainScraper:
             raise
 
         return uploaded_files
-    
+
     async def scrape_all_contractingANDservices(self):
         """Scrape all categories and handle uploads."""
         self.temp_dir.mkdir(exist_ok=True)
 
-        # Setup Google Drive
+        # Authenticate and initialize Google Drive
         try:
             credentials_json = os.environ.get("SERVICES_GCLOUD_KEY_JSON")
             if not credentials_json:
@@ -149,13 +164,15 @@ class ServicesMainScraper:
             self.logger.error(f"Failed to setup Google Drive: {e}")
             return
 
+        # Split tasks into chunks
         contractingANDservices_chunks = [
             list(self.contractingANDservices_data.items())[i : i + self.chunk_size]
             for i in range(0, len(self.contractingANDservices_data), self.chunk_size)
         ]
 
-        semaphore = asyncio.Semaphore(self.max_concurrent_links)
+        semaphore = asyncio.Semaphore(self.max_concurrent_links)  # Control concurrency
 
+        # Process each chunk one at a time
         for chunk_index, chunk in enumerate(contractingANDservices_chunks, 1):
             self.logger.info(f"Processing chunk {chunk_index}/{len(contractingANDservices_chunks)}")
 
@@ -181,7 +198,7 @@ class ServicesMainScraper:
 
                 for file in pending_uploads:
                     try:
-                        os.remove(file)
+                        os.remove(file)  # Cleanup
                         self.logger.info(f"Cleaned up local file: {file}")
                     except Exception as e:
                         self.logger.error(f"Error cleaning up {file}: {e}")
@@ -192,6 +209,7 @@ class ServicesMainScraper:
 
 
 if __name__ == "__main__":
+    # List of services and how many pages to scrape for each
     contractingANDservices_data = {
         "ستلايت": [("https://www.q84sale.com/ar/services/satellite/{}", 3)],
         "نقل عفش": [("https://www.q84sale.com/ar/services/pack-and-move/{}", 7)],
@@ -208,13 +226,9 @@ if __name__ == "__main__":
         "خدمات توصيل": [("https://www.q84sale.com/ar/services/transportation-and-logistics/{}", 2)],
         "خدمات مختلفة": [("https://www.q84sale.com/ar/services/other-services/{}", 1)],
     }
-    
-    
+
     async def main():
         scraper = ServicesMainScraper(contractingANDservices_data)
         await scraper.scrape_all_contractingANDservices()
-        
-        # scraper2 = CarScraper(contractingANDservices_data_2)
-        # await scraper2.scrape_brands_and_types()
 
     asyncio.run(main())
