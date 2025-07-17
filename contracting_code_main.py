@@ -1,3 +1,4 @@
+# Required imports for async operations, data handling, file ops, logging, and date/time.
 import asyncio
 import pandas as pd
 import os
@@ -6,29 +7,52 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 from pathlib import Path
+
+# Custom scraping and Drive-saving classes (assumed implemented elsewhere).
 from DetailsScraper import DetailsScraping
 from SavingOnDriveContracting import SavingOnDriveContracting
 
 
+# Main class for scraping contracting service listings and saving to Google Drive
 class ContractingMainScraper:
     def __init__(self, contractingANDservices_data: Dict[str, List[Tuple[str, int]]]):
+        # Dictionary of categories and their associated (url_template, page_count) list
         self.contractingANDservices_data = contractingANDservices_data
+        
+        # Number of categories to process at once (chunked)
         self.chunk_size = 2
+        
+        # Maximum concurrent URLs to scrape at a time
         self.max_concurrent_links = 2
+        
+        # Set up logger instance
         self.logger = logging.getLogger(__name__)
+        
+        # Configure logger (file + console)
         self.setup_logging()
+        
+        # Directory for storing temporary Excel files
         self.temp_dir = Path("temp_files")
-        self.temp_dir.mkdir(exist_ok=True)
+        self.temp_dir.mkdir(exist_ok=True)  # Create directory if it doesn't exist
+        
+        # Number of retry attempts for failed uploads
         self.upload_retries = 3
+        
+        # Delay (in seconds) between upload retries
         self.upload_retry_delay = 15
+        
+        # Delay between scraping each page
         self.page_delay = 3
+        
+        # Delay between scraping chunks
         self.chunk_delay = 10
 
     def setup_logging(self):
-        """Initialize logging configuration."""
+        """Initialize logging configuration to output to file and console."""
         stream_handler = logging.StreamHandler()
         file_handler = logging.FileHandler("scraper.log")
 
+        # Basic logging setup
         logging.basicConfig(
             level=logging.INFO,
             format="%(asctime)s - %(levelname)s - %(message)s",
@@ -38,22 +62,28 @@ class ContractingMainScraper:
         print("Logging setup complete.")
 
     async def scrape_contractingANDservice(self, contractingANDservice_name: str, urls: List[Tuple[str, int]], semaphore: asyncio.Semaphore) -> List[Dict]:
-        """Scrape data for a single category."""
+        """Scrape data for a single contracting category."""
         self.logger.info(f"Starting to scrape {contractingANDservice_name}")
-        card_data = []
+        card_data = []  # Store valid scraped cards
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
         async with semaphore:
+            # Loop through all URL templates for this category
             for url_template, page_count in urls:
+                # Scrape each page in the given range
                 for page in range(1, page_count + 1):
                     url = url_template.format(page)
                     scraper = DetailsScraping(url)
                     try:
+                        # Extract card details from the page
                         cards = await scraper.get_card_details()
+                        
+                        # Filter only cards published yesterday
                         for card in cards:
                             if card.get("date_published") and card.get("date_published", "").split()[0] == yesterday:
                                 card_data.append(card)
 
+                        # Wait to prevent rate-limiting
                         await asyncio.sleep(self.page_delay)
                     except Exception as e:
                         self.logger.error(f"Error scraping {url}: {e}")
@@ -62,13 +92,14 @@ class ContractingMainScraper:
         return card_data
 
     async def save_to_excel(self, contractingANDservice_name: str, card_data: List[Dict]) -> str:
-        """Save scraped data to an Excel file."""
+        """Save scraped card data to an Excel file."""
         if not card_data:
             self.logger.info(f"No data to save for {contractingANDservice_name}, skipping Excel file creation.")
             return None
 
         excel_file = Path(f"{contractingANDservice_name}.xlsx")
         try:
+            # Convert data to DataFrame and save as Excel
             df = pd.DataFrame(card_data)
             df.to_excel(excel_file, index=False)
             self.logger.info(f"Successfully saved data for {contractingANDservice_name}")
@@ -78,17 +109,19 @@ class ContractingMainScraper:
             return None
 
     async def upload_files_with_retry(self, drive_saver, files: List[str]) -> List[str]:
-        """Upload files to Google Drive with retry mechanism."""
+        """Upload files to Google Drive with retry logic."""
         uploaded_files = []
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
         try:
+            # Get or create folder for yesterday
             folder_id = drive_saver.get_folder_id(yesterday)
             if not folder_id:
                 folder_id = drive_saver.create_folder(yesterday)
                 self.logger.info(f"Created new folder '{yesterday}'")
 
             for file in files:
+                # Retry upload attempts
                 for attempt in range(self.upload_retries):
                     try:
                         if os.path.exists(file):
@@ -110,10 +143,10 @@ class ContractingMainScraper:
         return uploaded_files
 
     async def scrape_all_contractingANDservices(self):
-        """Scrape all categories and handle uploads."""
+        """Main function to scrape all contracting categories and upload their data."""
         self.temp_dir.mkdir(exist_ok=True)
 
-        # Setup Google Drive
+        # Authenticate Google Drive with environment credentials
         try:
             credentials_json = os.environ.get("CONTRACTING_GCLOUD_KEY_JSON")
             if not credentials_json:
@@ -128,11 +161,13 @@ class ContractingMainScraper:
             self.logger.error(f"Failed to setup Google Drive: {e}")
             return
 
+        # Break all categories into smaller chunks
         contractingANDservices_chunks = [
             list(self.contractingANDservices_data.items())[i : i + self.chunk_size]
             for i in range(0, len(self.contractingANDservices_data), self.chunk_size)
         ]
 
+        # Control how many tasks can run concurrently
         semaphore = asyncio.Semaphore(self.max_concurrent_links)
 
         for chunk_index, chunk in enumerate(contractingANDservices_chunks, 1):
@@ -142,7 +177,7 @@ class ContractingMainScraper:
             for contractingANDservice_name, urls in chunk:
                 task = asyncio.create_task(self.scrape_contractingANDservice(contractingANDservice_name, urls, semaphore))
                 tasks.append((contractingANDservice_name, task))
-                await asyncio.sleep(2)
+                await asyncio.sleep(2)  # Slight delay between starting tasks
 
             pending_uploads = []
             for contractingANDservice_name, task in tasks:
@@ -158,6 +193,7 @@ class ContractingMainScraper:
             if pending_uploads:
                 await self.upload_files_with_retry(drive_saver, pending_uploads)
 
+                # Remove local files after successful upload
                 for file in pending_uploads:
                     try:
                         os.remove(file)
@@ -165,12 +201,15 @@ class ContractingMainScraper:
                     except Exception as e:
                         self.logger.error(f"Error cleaning up {file}: {e}")
 
+            # Wait before processing the next chunk
             if chunk_index < len(contractingANDservices_chunks):
                 self.logger.info(f"Waiting {self.chunk_delay} seconds before next chunk...")
                 await asyncio.sleep(self.chunk_delay)
 
 
+# Entry point: Only runs if file is executed directly (not imported)
 if __name__ == "__main__":
+    # Define all categories and their scraping targets (URL + page count)
     contractingANDservices_data = {
         "مكافحة الحشرات": [("https://www.q84sale.com/ar/contracting/bugs-exterminator/{}", 1)],
         "مقاول صحى": [("https://www.q84sale.com/ar/contracting/plumber/{}", 4)],
@@ -197,8 +236,10 @@ if __name__ == "__main__":
         "مواد بناء": [("https://www.q84sale.com/ar/contracting/building-materials/{}", 1)],
     }
 
+    # Entry function to initialize the scraper and run the process
     async def main():
         scraper = ContractingMainScraper(contractingANDservices_data)
         await scraper.scrape_all_contractingANDservices()
 
+    # Run the async main function
     asyncio.run(main())
